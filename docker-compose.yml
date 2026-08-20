@@ -1,0 +1,197 @@
+# ---------------------------------------------------------------------------
+# SchoolHub — offline school platform
+#
+#   One service block per feature. Every service joins the shared "schoolnet"
+#   network and NONE of them publish a port except the proxy — the reverse
+#   proxy is the single entry point on port 80, exactly as PROJECT_PLAN.md
+#   describes. Adding a feature = append one block here, add one file to
+#   proxy/conf.d/locations/, add one tile to homepage/index.html.
+#
+#   Copy .env.example to .env before running anything.
+#   Run with:  docker compose up -d
+# ---------------------------------------------------------------------------
+
+name: ${COMPOSE_PROJECT_NAME:-schoolhub}
+
+networks:
+  schoolnet:
+    name: ${COMPOSE_PROJECT_NAME:-schoolhub}_schoolnet
+    driver: bridge
+
+services:
+
+  # ---------------------------------------------------------------------
+  # PROXY — the only container with a published port.
+  # ---------------------------------------------------------------------
+  proxy:
+    image: nginx:1.27-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-schoolhub}-proxy
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - ./proxy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./proxy/conf.d:/etc/nginx/conf.d:ro
+      - ./proxy/snippets:/etc/nginx/snippets:ro
+    environment:
+      TZ: ${TZ:-UTC}
+    networks:
+      - schoolnet
+    depends_on:
+      - homepage
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ---------------------------------------------------------------------
+  # HOMEPAGE — static front door. Plain nginx serving ./homepage read-only.
+  # ---------------------------------------------------------------------
+  homepage:
+    image: nginx:1.27-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-schoolhub}-homepage
+    restart: unless-stopped
+    volumes:
+      - ./homepage:/usr/share/nginx/html:ro
+    environment:
+      TZ: ${TZ:-UTC}
+    networks:
+      - schoolnet
+
+  # ---------------------------------------------------------------------
+  # AUTH — Authelia, used as forward-auth (see proxy/snippets/authelia-*).
+  # Serves its portal under the /authelia base path on the same host, which
+  # is what makes session cookies work without a real domain or subdomains.
+  # ---------------------------------------------------------------------
+  auth:
+    # Pinned to a minor line: Authelia's config schema does change between
+    # minor versions. If this tag ever fails to pull, check the tag list and
+    # re-read auth/configuration.yml against that version's docs before
+    # jumping to :latest.
+    image: authelia/authelia:4.38
+    container_name: ${COMPOSE_PROJECT_NAME:-schoolhub}-auth
+    restart: unless-stopped
+    volumes:
+      - ./auth/configuration.yml:/config/configuration.yml:ro
+      # rw so `authelia crypto hash generate` style workflows and any future
+      # in-app user edits aren't blocked by a read-only mount.
+      - ./auth/users_database.yml:/config/users_database.yml
+      # sqlite session/regulation db + the filesystem notifier's output
+      - ./auth/data:/data
+    environment:
+      TZ: ${TZ:-UTC}
+      X_AUTHELIA_CONFIG: /config/configuration.yml
+      # Secrets come from .env — never commit real values into configuration.yml.
+      AUTHELIA_SESSION_SECRET: ${AUTHELIA_SESSION_SECRET:?set AUTHELIA_SESSION_SECRET in .env}
+      AUTHELIA_STORAGE_ENCRYPTION_KEY: ${AUTHELIA_STORAGE_ENCRYPTION_KEY:?set AUTHELIA_STORAGE_ENCRYPTION_KEY in .env}
+      AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET: ${AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET:?set AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET in .env}
+    networks:
+      - schoolnet
+
+  # ---------------------------------------------------------------------
+  # LIBRARY — kiwix-serve. Drop any .zim file into LIBRARY_DATA_DIR and
+  # restart this container; no config change needed.
+  #
+  # NOTE: with an empty data directory kiwix-serve has nothing to serve and
+  # will exit (and restart-loop). That is expected until you have run
+  # services/library/download-content.sh — everything else keeps working.
+  # ---------------------------------------------------------------------
+  library:
+    image: ghcr.io/kiwix/kiwix-serve:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-schoolhub}-library
+    restart: unless-stopped
+    volumes:
+      - ${LIBRARY_DATA_DIR:-./services/library/data}:/data:ro
+    # --urlRootLocation makes kiwix generate links under /library, so the
+    # proxy can pass the path straight through without rewriting anything.
+    # The glob is expanded by kiwix-serve itself (the image has no shell).
+    # If your kiwix-serve build doesn't expand it, list the files explicitly:
+    #   command: ["--port=8080", "--urlRootLocation=/library", "/data/wikipedia_en_all_nopic.zim", "/data/khan-academy.zim"]
+    command: ["--port=8080", "--urlRootLocation=/library", "/data/*.zim"]
+    environment:
+      TZ: ${TZ:-UTC}
+    networks:
+      - schoolnet
+
+  # ---------------------------------------------------------------------
+  # EBOOKS — Calibre-web.
+  #   /config  → Calibre-web's own settings db (app_db)
+  #   /books   → the Calibre library it manages (metadata.db + book files)
+  #   /import  → staging folder the download script writes into
+  # DOCKER_MODS adds the calibre binaries so `calibredb add` works for bulk
+  # import (see services/ebooks/import-to-calibre.sh).
+  # ---------------------------------------------------------------------
+  ebooks:
+    image: lscr.io/linuxserver/calibre-web:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-schoolhub}-ebooks
+    restart: unless-stopped
+    volumes:
+      - ./services/ebooks/config:/config
+      - ${EBOOKS_LIBRARY_DIR:-./services/ebooks/library}:/books
+      - ${EBOOKS_IMPORT_DIR:-./services/ebooks/import}:/import
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-UTC}
+      DOCKER_MODS: linuxserver/mods:universal-calibre
+    networks:
+      - schoolnet
+
+  # ---------------------------------------------------------------------
+  # NEWS — Grav (flat-file CMS, no database).
+  # /config holds the whole Grav install including user/pages, so posts
+  # survive container rebuilds. Seed posts: services/news/seed-content.sh
+  #
+  # PHASE 2 TODO (deliberately not done yet): Grav's admin panel at
+  # /news/admin has its own login. Once Authelia is in real use, add
+  #   include /etc/nginx/snippets/authelia-authrequest.conf;
+  # to a /news/admin location block so teachers use one shared account.
+  # ---------------------------------------------------------------------
+  news:
+    image: lscr.io/linuxserver/grav:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-schoolhub}-news
+    restart: unless-stopped
+    volumes:
+      - ./services/news/data:/config
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-UTC}
+    networks:
+      - schoolnet
+
+  # ---------------------------------------------------------------------
+  # GAMES — the one custom service in the stack. Built from source (also
+  # the reason it's built on the Pi rather than cross-compiled: ARM64).
+  # ---------------------------------------------------------------------
+  games:
+    build:
+      context: ./services/games
+      dockerfile: Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-schoolhub}/games:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-schoolhub}-games
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      TZ: ${TZ:-UTC}
+      PORT: "3000"
+      BASE_PATH: ${GAMES_BASE_PATH:-/games}
+      DISCONNECT_GRACE_SECONDS: ${GAMES_DISCONNECT_GRACE_SECONDS:-90}
+      ROOM_IDLE_MINUTES: ${GAMES_ROOM_IDLE_MINUTES:-30}
+    networks:
+      - schoolnet
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ---------------------------------------------------------------------
+  # FORUM — Lemmy. Phase 4; see services/forum/README.md.
+  # When it lands it is three blocks (lemmy, lemmy-ui, postgres, pictrs)
+  # appended right here, plus proxy/conf.d/locations/50-forum.conf swapped
+  # from the placeholder to a real proxy_pass.
+  # ---------------------------------------------------------------------

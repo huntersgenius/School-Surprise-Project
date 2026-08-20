@@ -1,0 +1,24 @@
+# Grav system config overrides for SchoolHub.
+#
+# This file is MERGED over Grav's defaults (which live in system/config/), so
+# only the keys that differ need to be here.
+#
+# custom_base_url is the important one: the proxy strips the /news prefix
+# before Grav sees a request, so without this Grav would generate links at the
+# site root and every link on the news site would 404.
+# seed-content.sh rewrites the hostname in it from SITE_HOSTNAME in .env.
+
+custom_base_url: 'http://schoolhub.local/news'
+
+pages:
+  theme: quark
+
+home:
+  alias: '/home'
+
+cache:
+  enabled: true
+
+errors:
+  display: 0
+  log: true

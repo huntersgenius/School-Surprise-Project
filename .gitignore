@@ -1,0 +1,40 @@
+# ---- secrets -------------------------------------------------------------
+.env
+*.pem
+*.key
+
+# ---- downloaded content (far too large for git) --------------------------
+# ZIM files: 25-45GB each. Fetched with services/library/download-content.sh
+services/library/data/*
+!services/library/data/.gitkeep
+
+# Ebooks: fetched with services/ebooks/download-content.sh
+services/ebooks/import/*
+!services/ebooks/import/.gitkeep
+
+# ---- container-generated state -------------------------------------------
+# Calibre-web's config db + the Calibre library it manages
+services/ebooks/config/*
+!services/ebooks/config/.gitkeep
+services/ebooks/library/*
+!services/ebooks/library/.gitkeep
+
+# Grav's live install (the seed content in services/news/seed IS tracked)
+services/news/data/*
+!services/news/data/.gitkeep
+
+# Authelia's session/regulation sqlite db + notification file
+auth/data/*
+!auth/data/.gitkeep
+
+# ---- node ----------------------------------------------------------------
+node_modules/
+npm-debug.log*
+package-lock.json.bak
+
+# ---- editors / OS --------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

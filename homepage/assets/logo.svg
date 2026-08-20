@@ -1,0 +1,9 @@
+<!-- PLACEHOLDER LOGO — swap this file for the school's own crest.
+     Keep it square; the homepage renders it at 56px. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="SchoolHub logo">
+  <rect width="64" height="64" rx="14" fill="#2f6df6"/>
+  <path d="M32 16 L52 26 L32 36 L12 26 Z" fill="#ffffff" opacity="0.95"/>
+  <path d="M20 30 v10 c0 4 5.4 7 12 7 s12 -3 12 -7 v-10" fill="none" stroke="#ffffff" stroke-width="3.5"
+        stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+  <path d="M52 26 v12" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" opacity="0.9"/>
+</svg>

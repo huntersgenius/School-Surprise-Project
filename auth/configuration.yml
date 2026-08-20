@@ -1,0 +1,131 @@
+---
+# ---------------------------------------------------------------------------
+# Authelia — shared login for SchoolHub.
+#
+# Authelia is not a proxy here: Nginx asks it "may this request through?" via
+# auth_request (see proxy/snippets/authelia-authrequest.conf) and Authelia
+# answers 200 or 401. Adding login to a new feature is one include line in
+# that feature's nginx file — no code, no per-app user database.
+#
+# SECRETS ARE NOT IN THIS FILE. They come from the environment (set in .env,
+# passed through docker-compose.yml):
+#   AUTHELIA_SESSION_SECRET
+#   AUTHELIA_STORAGE_ENCRYPTION_KEY
+#   AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET
+#
+# HOSTNAME: 'schoolhub.local' appears three times below (session cookie domain,
+# portal URL, access control rule). If you rename the project, change all
+# three — Authelia cannot read SITE_HOSTNAME from .env.
+#
+# Written against Authelia 4.38 (the tag pinned in docker-compose.yml).
+# ---------------------------------------------------------------------------
+
+theme: 'light'
+
+server:
+  # The trailing path is Authelia's base path: the portal lives at
+  # http://schoolhub.local/authelia/ rather than on its own subdomain.
+  # This is the key decision for a LAN deployment — we can't create DNS
+  # records on a school network, so portal and apps must share one hostname,
+  # which also means they share one cookie.
+  address: 'tcp://:9091/authelia'
+  endpoints:
+    authz:
+      # The endpoint proxy/conf.d/locations/60-auth.conf calls. "AuthRequest"
+      # is the nginx auth_request flavour specifically.
+      auth-request:
+        implementation: 'AuthRequest'
+
+log:
+  level: 'info'
+  format: 'text'
+
+totp:
+  # One-factor only for now: students and teachers on a closed network, no
+  # phones assumed. Flip to false if you later want 2FA for staff accounts.
+  disable: true
+  issuer: 'schoolhub.local'
+
+# ---------------------------------------------------------------------------
+# Users: a flat YAML file. Fine for a school; swap for LDAP/DB if this ever
+# grows past a few hundred accounts. See auth/README.md to add a user.
+# ---------------------------------------------------------------------------
+authentication_backend:
+  password_reset:
+    # No SMTP server on an offline Pi, so self-service reset can't work.
+    # An admin edits users_database.yml instead.
+    disable: true
+  # Re-read the user file this often, so adding a user doesn't need a restart.
+  refresh_interval: '1m'
+  file:
+    path: '/config/users_database.yml'
+    watch: true
+    search:
+      email: false
+      case_insensitive: true
+    password:
+      # Hashes NEW passwords with bcrypt (existing hashes are detected by
+      # their prefix, so argon2 hashes would still verify if you had any).
+      algorithm: 'bcrypt'
+      bcrypt:
+        variant: 'standard'
+        cost: 12
+
+# ---------------------------------------------------------------------------
+# Who may reach what. This only ever applies to routes Nginx actually gates —
+# an ungated route never asks Authelia in the first place.
+# ---------------------------------------------------------------------------
+access_control:
+  default_policy: 'deny'
+  rules:
+    # Restrict a route to a group by adding a rule ABOVE the catch-all, e.g.:
+    # - domain: 'schoolhub.local'
+    #   resources: ['^/news/admin.*$']
+    #   policy: 'one_factor'
+    #   subject: ['group:teachers']
+
+    # Catch-all: any gated route needs a logged-in user, any user.
+    - domain: 'schoolhub.local'
+      policy: 'one_factor'
+
+# ---------------------------------------------------------------------------
+# Session cookie.
+#
+# LAN + plain HTTP caveat (deliberate, documented in PROJECT_PLAN.md): the
+# cookie cannot be marked `secure` because there is no HTTPS, so it travels
+# in the clear on the school network. Acceptable for "keep students out of the
+# teacher pages"; not acceptable if real secrets ever live behind this login.
+# The fix at that point is HTTPS with a locally-trusted CA, not a change here.
+# ---------------------------------------------------------------------------
+session:
+  # secret: provided by AUTHELIA_SESSION_SECRET
+  cookies:
+    - domain: 'schoolhub.local'
+      # Where to send a logged-out user. Must be on the cookie domain.
+      authelia_url: 'http://schoolhub.local/authelia'
+      # Where "log in" lands when someone visits the portal directly.
+      default_redirection_url: 'http://schoolhub.local/'
+      name: 'authelia_session'
+      same_site: 'lax'
+      expiration: '12 hours'
+      inactivity: '2 hours'
+      remember_me: '1 month'
+
+# Brute-force protection: 5 bad passwords in 2 minutes = locked out for 5.
+regulation:
+  max_retries: 5
+  find_time: '2 minutes'
+  ban_time: '5 minutes'
+
+storage:
+  # encryption_key: provided by AUTHELIA_STORAGE_ENCRYPTION_KEY
+  local:
+    # Mounted from ./auth/data — gitignored, survives container rebuilds.
+    path: '/data/db.sqlite3'
+
+# Authelia requires a notifier even when nothing sends mail. Writing to a file
+# keeps it entirely offline; nothing reads this file in normal operation.
+notifier:
+  disable_startup_check: true
+  filesystem:
+    filename: '/data/notification.txt'

@@ -1,0 +1,45 @@
+---
+# ---------------------------------------------------------------------------
+# Authelia user database.
+#
+#   >>> CHANGE THE ADMIN PASSWORD BEFORE THIS GOES ON A SCHOOL NETWORK. <<<
+#
+# The hash below is a real, working bcrypt hash of the password:
+#
+#       changeme123
+#
+# It is a placeholder and it is public (it's committed to this repo), so it
+# must be replaced. Generate a new hash without installing anything:
+#
+#   docker compose run --rm --no-deps --entrypoint authelia auth \
+#     crypto hash generate bcrypt --password 'your-new-password'
+#
+# ...then paste the resulting $2b$... string over the one below.
+#
+# Authelia re-reads this file every minute (authentication_backend.watch), so
+# adding a user usually needs no restart. If in doubt: docker compose restart auth
+# ---------------------------------------------------------------------------
+
+users:
+
+  admin:
+    disabled: false
+    displayname: 'School Admin'
+    # bcrypt hash of "changeme123" — REPLACE ME
+    password: '$2b$12$oBGE4fylpXgwYr/AuzRur.63HJCxD197OjrhvEuxnD2AFyucTliaW'
+    email: 'admin@schoolhub.local'
+    groups:
+      - 'admins'
+      - 'teachers'
+
+  # Copy this block for each new person. Groups are free-form strings; they
+  # only matter where an access_control rule in configuration.yml mentions
+  # them (e.g. subject: ['group:teachers']).
+  #
+  # jdoe:
+  #   disabled: false
+  #   displayname: 'Jane Doe'
+  #   password: '$2b$12$...'
+  #   email: 'jdoe@schoolhub.local'
+  #   groups:
+  #     - 'teachers'

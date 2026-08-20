@@ -1,0 +1,24 @@
+{
+  "name": "schoolhub-games",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Live chess and checkers for the SchoolHub offline school platform",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "chess.js": "^1.4.0",
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "socket.io-client": "^4.8.3"
+  }
+}
