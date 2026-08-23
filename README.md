@@ -52,8 +52,35 @@ openssl rand -hex 32
 Put them in `AUTHELIA_SESSION_SECRET`, `AUTHELIA_STORAGE_ENCRYPTION_KEY` and
 `AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET`.
 
-Also worth setting now: `PUID`/`PGID` (run `id -u; id -g`), `TZ`, and `HTTP_PORT=8080` if
-something already owns port 80 on your machine.
+Also worth setting now: `TZ`, and `HTTP_PORT=8080` if something already owns port 80.
+
+**`PUID`/`PGID` must not be 0.** They're what the Calibre-web and Grav containers run as.
+Grav's php-fpm refuses to run as root and dies with `please specify user and group other than
+root`, which surfaces as a 502 on `/news` with no obvious cause. Use `id -u; id -g`, or leave
+them at 1000 if you're root.
+
+Then make the bind-mounted data directories writable by that user, or Grav and Calibre-web
+can't create their own files:
+
+```bash
+sudo chown -R "${PUID:-1000}:${PGID:-1000}" services/news/data services/ebooks/{config,library,import}
+```
+
+### 2b. A word about HTTPS
+
+Open content — homepage, library, ebooks, news, games — is served over plain **HTTP on port
+80**, exactly as planned. Students never see a certificate warning.
+
+Routes behind login are different. Authelia 4.38+ refuses to start with an `http://` portal URL
+(checked against 4.38.19 and 4.39.20; there is no localhost exception), and its session cookie
+is therefore `Secure`, so a gated route on http would loop through the login page forever. The
+stack handles this by also listening on **443 with a self-signed certificate**, generated
+automatically on first `up` by the one-shot `certs` service, and gated routes redirect
+themselves to https. The only person who meets the certificate warning is a staff member
+opening a staff page; accept it once, or install `proxy/certs/public.crt` as trusted on the
+machines that need it.
+
+If you'd rather not have TLS in the stack at all, see "Open decisions" at the bottom.
 
 ### 3. Change the admin password
 
@@ -67,31 +94,61 @@ docker compose run --rm --no-deps --entrypoint authelia auth \
 
 Paste the `$2b$...` output over the placeholder hash.
 
+### 3b. Point your machine at the hostname
+
+Authelia's session cookie is scoped to `schoolhub.local`, so log-in only works when you reach
+the site by that name — not by `localhost` or an IP. On the Pi, avahi provides the name. On a
+dev machine, add it yourself:
+
+```bash
+echo "127.0.0.1 schoolhub.local" | sudo tee -a /etc/hosts
+```
+
 ### 4. Bring the stack up
 
 ```bash
-docker compose up -d          # builds the games image, pulls the other five
+docker compose up -d          # builds games, pulls the rest, generates the TLS cert
 docker compose ps
 ```
 
-Expected right now: **everything healthy except `library`, which restart-loops.** That's
-correct — kiwix-serve has no ZIM file to serve yet. Every other service is unaffected.
+Expected: **everything healthy except `library`, which restart-loops.** That's correct —
+kiwix-serve has no ZIM file to serve yet, so it exits. Every other service is unaffected,
+because each runs in its own container and the proxy resolves upstreams lazily.
 
-Check the routes:
+Check the routes (verified working exactly like this):
 
 ```bash
-curl -I http://localhost/            # homepage
-curl -I http://localhost/games/      # games — works immediately
-curl -I http://localhost/ebooks      # Calibre-web (empty library)
-curl -I http://localhost/news/       # Grav (unseeded)
-curl -I http://localhost/private/    # 302 to the Authelia login — proves auth works
+curl -I http://schoolhub.local/            # homepage        200
+curl -I http://schoolhub.local/games/      # games           200, works immediately
+curl -I http://schoolhub.local/ebooks      # Calibre-web     302 -> /ebooks/admin/dbconfig
+curl -I http://schoolhub.local/news/       # Grav            200 once seeded
+curl -I http://schoolhub.local/private/    # gated route     301 -> https
+curl -Ik https://schoolhub.local/private/  # logged out      302 -> /authelia/?rd=...
 ```
 
-### 5. Seed the news site (one minute)
+That last pair is the whole auth chain: http redirects to https, https bounces you to the
+Authelia portal, and after logging in you land back on the page.
+
+### 5. Seed the news site (two minutes)
 
 ```bash
 docker compose up -d news
 sleep 30                                  # Grav unpacks itself on first start
+```
+
+Grav forces you to create its admin account before it will serve any page — every route
+redirects to `/news/admin` until you do. Do it from the command line:
+
+```bash
+docker compose exec -u abc news sh -c \
+  'cd /app/www/public && php bin/plugin login new-user \
+     -u newsadmin -p "choose-a-password" -e news@schoolhub.local \
+     -l en -P b --admin-type admin -N "School Office" -s enabled'
+```
+
+Then seed the sample posts and the base URL:
+
+```bash
 ./services/news/seed-content.sh
 docker compose restart news
 ```
@@ -103,8 +160,16 @@ docker compose restart news
 ./services/ebooks/import-to-calibre.sh         # imports them into Calibre-web
 ```
 
-Then open `http://localhost/ebooks`, enter `/books` when it asks for the library location, and
-log in with Calibre-web's own default (`admin` / `admin123`) — change that immediately.
+Then open `http://schoolhub.local/ebooks`, log in with Calibre-web's own default
+(`admin` / `admin123`, change it immediately), and enter `/books` on the Database
+Configuration page.
+
+**Order matters here.** Calibre-web can only *open* an existing Calibre library — it has no
+"create new database" button. `import-to-calibre.sh` is what creates it, via `calibredb`, so
+run the import before pointing Calibre-web at `/books`. `calibredb` comes from
+`DOCKER_MODS=linuxserver/mods:universal-calibre`, which the container downloads on first start
+— so do this while the machine still has internet, not after the Pi is sealed off. If the mod
+didn't install, the script says so and stops rather than half-importing.
 
 ### 7. Download the library (hours, tens of GB)
 
@@ -134,6 +199,18 @@ generates the secrets and brings the stack up. `./deploy.sh --help` prints the w
 
 ---
 
+## Troubleshooting, from things that actually went wrong
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `/news` returns 502, logs say `please specify user and group other than root` | `PUID=0` | set `PUID`/`PGID` to a non-root user (1000) |
+| `/news` 502, logs say `socket() [::]:80 failed (97: Address family not supported)` | the host has IPv6 disabled, the Grav image binds `[::]:80` | comment out the `listen [::]…` lines in `services/news/data/nginx/site-confs/default.conf`, restart |
+| every `/news` page 404s but links look right | the `/news` prefix is being stripped before Grav | don't rewrite: Grav strips its own `custom_base_url` prefix. See `proxy/conf.d/locations/30-news.conf` |
+| `library` restart-loops, log prints kiwix usage | no `.zim` in `services/library/data`, or the glob wasn't shell-expanded | download a ZIM; the compose file already runs kiwix through `/bin/sh -c` so the glob works |
+| proxy won't start, `directive is duplicate` / `proxy_busy_buffers_size` | a location sets a directive that the http block or a snippet already set | keep timeouts in `nginx.conf`, don't override one buffer setting alone |
+| login redirects forever | reached the site by IP or `localhost` instead of `schoolhub.local`, so the cookie doesn't match | use the hostname |
+| `auth` container exits on boot | Authelia rejects an `http://` portal URL | `session.cookies[].authelia_url` must be `https://` |
+
 ## Handy commands
 
 ```bash
@@ -158,6 +235,20 @@ docker stats --no-stream                            # resource use
 | Writing news posts, the base-URL gotcha | `services/news/README.md` |
 | Games protocol, disconnect handling, limitations | `services/games/README.md` |
 | Lemmy plan and the auth question | `services/forum/README.md` |
+
+## Open decisions
+
+Two things are deliberately left for you rather than assumed:
+
+**1. TLS.** The stack serves open content on http and gated routes on https with a self-signed
+certificate, because Authelia will not run otherwise. The alternatives, if you dislike that:
+pin Authelia to a pre-4.38 release that accepts http (older auth software on a school
+network), or drop Authelia for now and gate the few staff routes with nginx basic auth (no
+shared session, no lockout, no logout). Say which and it's a small change.
+
+**2. Should games require login?** One `include` line in
+`proxy/conf.d/locations/40-games.conf` either way. Trade-offs are in
+`services/games/README.md`. Worth deciding after the pilot.
 
 ## Adding a new feature later
 

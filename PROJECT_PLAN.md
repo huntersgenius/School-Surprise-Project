@@ -68,22 +68,22 @@ Everything is grouped into **4 phases**. Each phase below is one long, detailed 
 
 ## Current build state
 
-Phases 1-3 are written as code in this repo (config, services, scripts, frontend). Nothing has been
-run or deployed yet — no containers built, no content downloaded, no Pi touched. See `README.md`
-for the exact run order.
+Phases 1-3 have been built **and run**: the whole stack was brought up with `docker compose up -d`,
+every route was exercised through the real proxy, and the bugs that surfaced were fixed. The Pi
+itself has not been touched, and the large content downloads have not been run.
 
 | Piece | State |
 |---|---|
-| Repo scaffold, `.gitignore`, `.env.example` | written |
-| Nginx reverse proxy (`/proxy`) | written — one file per route under `proxy/conf.d/locations/` |
-| Homepage (`/homepage`) | written — tiles for Library, Ebooks, Games, News, Forum (Forum disabled) |
-| Library (kiwix-serve) + `download-content.sh` | written — script **not run** (25-45GB download is yours to kick off) |
-| Ebooks (Calibre-web) + `download-content.sh` | written — script **not run** |
-| News (Grav) + seed posts | written — seed script **not run** |
-| Auth (Authelia) | written — file-based users, one placeholder admin, `/private` demo route gated |
-| Games (Node + Socket.io, chess + checkers) | written — image **not built** |
-| Forum (Lemmy) | Phase 4, not started |
-| Pi deployment (`deploy.sh`) | written as a script to run **on the Pi**, not from a dev machine |
+| Repo scaffold, `.gitignore`, `.env.example` | done |
+| Nginx reverse proxy (`/proxy`) | **running** — every route verified; three config bugs found and fixed |
+| Homepage (`/homepage`) | **running** — serves at `/`, tiles link correctly |
+| Library (kiwix-serve) | **running** — catalog, article rendering and full-text search verified with a test ZIM; the real 49GB download is yours to kick off |
+| Ebooks (Calibre-web) | **running** — login and the `/ebooks` prefix verified in a browser; bulk import needs the calibre mod (see its README) |
+| News (Grav) | **running** — three seeded posts render, links carry the `/news` prefix |
+| Auth (Authelia) | **running** — full chain verified: gated route → portal → login → session → content |
+| Games (Node + Socket.io) | **running** — chess and checkers played end to end in two real browsers, including the disconnect/forfeit path |
+| Forum (Lemmy) | Phase 4, **not started** — placeholder route only |
+| Pi deployment (`deploy.sh`) | written, **not run** — it runs on the Pi, which doesn't exist yet |
 
 ---
 
@@ -112,9 +112,12 @@ Authelia runs as a forward-auth service behind Nginx. It is *not* a proxy itself
 
 ### Gate a route behind login
 
-Add **one line** to that route's file in `proxy/conf.d/locations/`, inside the `location` block:
+Add **two lines** to that route's file in `proxy/conf.d/locations/`, inside the `location`
+block — the https redirect must come first, or the `Secure` session cookie never reaches the
+route and the user bounces between the page and the login form forever:
 
 ```nginx
+include /etc/nginx/snippets/require-https.conf;
 include /etc/nginx/snippets/authelia-authrequest.conf;
 ```
 
@@ -133,15 +136,33 @@ access_control:
       subject: ['group:teachers']
 ```
 
-### Known security gap (LAN-only, plain HTTP)
+### HTTP vs HTTPS — what running it actually forced
 
-The stack runs on plain HTTP on the school LAN, so the Authelia session cookie is sent
-unencrypted and `secure` cannot be set on it. Anyone able to sniff traffic on that LAN (or
-sitting on a rogue AP) can capture a session cookie and reuse it. This is acceptable for a
-closed school network with no real secrets behind it, and the mitigation when it stops being
-acceptable is HTTPS with a locally-trusted CA (or Tailscale/WireGuard for remote access) —
-not a change to the auth model itself. Treat Authelia here as "keeps casual students out of the
-teacher-only pages", not as a defence against an attacker on the wire.
+The original plan assumed the whole platform could sit on plain HTTP. That holds for every
+open service, and it is what students get. It does **not** hold for the login layer:
+
+Authelia 4.38+ refuses to start if `session.cookies[].authelia_url` is `http://`. Verified
+against 4.38.19 and 4.39.20 — the validator rejects it for a hostname, for `localhost`, and
+for `127.0.0.1` alike. Because the portal must be https, the session cookie is issued
+`Secure`, and a gated route served over http would never receive it — the browser would loop
+through the login page forever.
+
+So the stack listens on **both**: port 80 for open content (unchanged), port 443 with a
+self-signed certificate for anything behind login. The certificate is generated on first
+`docker compose up` by the one-shot `certs` service (using the Authelia image's own
+`crypto certificate` command — no extra dependency). Gated locations include
+`snippets/require-https.conf`, which redirects them to https.
+
+**The residual gap:** the certificate is self-signed, so the first visit to a gated page shows
+a browser warning. Students never see it — open content stays on http. Installing
+`proxy/certs/public.crt` as a trusted root on staff devices removes it. Treat this login as
+"keeps casual students out of the teacher pages", not as a defence against a determined
+attacker on the wire.
+
+The alternatives, if the certificate warning is unacceptable: pin Authelia to a pre-4.38
+release that still allows http (old auth software), or replace forward-auth with nginx basic
+auth (no shared session, no lockout, no logout). Both are downgrades; the self-signed
+certificate is the least-bad option.
 
 ---
 

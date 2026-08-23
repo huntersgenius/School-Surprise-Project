@@ -14,16 +14,41 @@ import/                staging area for downloaded epubs      (gitignored)
 ## First run
 
 ```bash
+sudo chown -R 1000:1000 services/ebooks/{config,library,import}   # PUID/PGID from .env
 docker compose up -d ebooks
 ./services/ebooks/download-content.sh          # ~73 books, 40-60 MB, a few minutes
-./services/ebooks/import-to-calibre.sh
+./services/ebooks/import-to-calibre.sh         # this is what CREATES the library
 ```
 
 Then open `http://schoolhub.local/ebooks`:
 
-1. Calibre-web asks for the library location on first launch — enter `/books`.
-2. Log in with Calibre-web's defaults, **`admin` / `admin123`**, and change the password
+1. Log in with Calibre-web's defaults, **`admin` / `admin123`**, and change the password
    immediately (Admin → Users). This is a separate account from Authelia's.
+2. Admin → Edit Database Configuration → set the location to `/books`.
+
+**Do the import before pointing Calibre-web at `/books`.** Calibre-web can only *open* an
+existing Calibre library; the Database Configuration page has no "create new database" option,
+and pointing it at an empty folder just fails validation. `calibredb add` (what the import
+script runs) is what creates `metadata.db` in the first place.
+
+## calibredb comes from a mod, and the mod is downloaded at runtime
+
+`DOCKER_MODS=linuxserver/mods:universal-calibre` is fetched **when the container starts**, not
+baked into the image. Two consequences:
+
+* Do the first import while the machine still has internet. On a Pi that has already been
+  sealed off from the network, the mod can't be fetched and `calibredb` won't exist.
+* If the fetch fails you'll see `OFFLINE: linuxserver/mods:universal-calibre not found in
+  modcache, skipping` in `docker compose logs ebooks`, and `import-to-calibre.sh` will stop
+  with a clear message rather than half-importing.
+
+Fallback if you can't use the mod: run calibre's CLI from a one-off container instead —
+
+```bash
+docker run --rm -v "$PWD/services/ebooks/library:/books" -v "$PWD/services/ebooks/import:/import" \
+  lscr.io/linuxserver/calibre:latest \
+  /usr/bin/calibredb add --recurse --with-library /books /import
+```
 
 ## Expanding the library
 

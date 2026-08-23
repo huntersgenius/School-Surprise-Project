@@ -65,10 +65,14 @@
 
     // ---- socket -------------------------------------------------------------
 
-    const socket = io({
-        path: config.socketPath,
-        transports: ['websocket', 'polling'],
-    });
+    // Deliberately NOT passing `transports`. socket.io's default is to open on
+    // HTTP long-polling and upgrade to a websocket once it's proven to work,
+    // which is the behaviour that survives proxies and school networks that
+    // mangle upgrades. Listing websocket first looks faster but means a
+    // blocked upgrade is a total failure: since v4.8 the client does not fall
+    // back to the next transport in an explicit list unless you also set
+    // tryAllTransports, so the lobby just sits there saying "connecting…".
+    const socket = io({ path: config.socketPath });
 
     socket.on('connect', () => {
         setConnection('online', 'connected');

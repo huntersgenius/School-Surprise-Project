@@ -17,11 +17,38 @@ migrate. Copying `data/user/pages` somewhere safe *is* the backup.
 ```bash
 docker compose up -d news
 sleep 30                              # Grav unpacks itself on first start
+
+# Grav redirects EVERY page to /news/admin until an admin account exists.
+docker compose exec -u abc news sh -c \
+  'cd /app/www/public && php bin/plugin login new-user \
+     -u newsadmin -p "choose-a-password" -e news@schoolhub.local \
+     -l en -P b --admin-type admin -N "School Office" -s enabled'
+
 ./services/news/seed-content.sh
 docker compose restart news
 ```
 
 Then open `http://schoolhub.local/news/`.
+
+## Why the image is pinned to 1.7.x
+
+`docker-compose.yml` pins `lscr.io/linuxserver/grav:1.7.53-ls252` rather than `:latest`.
+The current `:latest` (Grav 2.0.21 on PHP 8.5) serves a working 404 page for **every** route,
+including its own shipped demo pages — Grav boots, the admin panel answers, and the page tree
+is empty. 1.7.53 on PHP 8.3 behaves correctly. Re-test before moving the pin.
+
+## If the container won't start on an IPv6-less host
+
+The image's nginx config binds `[::]:80`. On a host with IPv6 disabled in the kernel this is
+fatal (`socket() [::]:80 failed (97: Address family not supported by protocol)`) and the
+container restart-loops. The config lives in the mounted volume, so fix it in place:
+
+```bash
+sed -i -E 's|^(\s*)(listen \[::\].*)|\1# \2|' services/news/data/nginx/site-confs/default.conf
+docker compose restart news
+```
+
+A stock Raspberry Pi OS has IPv6 enabled, so this is only for hosts where it's been turned off.
 
 ## Writing posts
 
@@ -52,15 +79,24 @@ The rest of the post, after the summary delimiter.
 
 The `NN.` number prefix controls ordering; the listing itself sorts by date, newest first.
 
-## The base-URL gotcha
+## The base-URL gotcha (this one cost real debugging time)
 
-The proxy strips `/news` before Grav sees the request, so Grav has to be *told* what its public
-address is — that's `custom_base_url` in `data/.../user/config/system.yaml`, which
-`seed-content.sh` sets from `SITE_HOSTNAME` in `.env`.
+Grav is told its public address by `custom_base_url` in
+`data/.../user/config/system.yaml`, which `seed-content.sh` sets from `SITE_HOSTNAME` in
+`.env`. **Once it knows that base path, Grav expects to receive it in the request URI and
+strips it itself.**
 
-Consequence: reaching the news site by raw IP (`http://192.168.1.50/news/`) produces links
-pointing at `schoolhub.local`. Use the hostname. If you rename the project, re-run
-`seed-content.sh` (it rewrites the key in place) and restart the container.
+So the nginx route must pass `/news/...` through **unchanged**. An earlier version of
+`30-news.conf` rewrote `/news/foo` to `/foo` before proxying, which produced the most
+misleading failure in this whole build: every generated link looked perfect (`/news/home/...`),
+Grav's own 404 page rendered with the right site title, and every single page 404'd — because
+the route Grav received no longer matched anything it had.
+
+If you ever see "links look right but everything 404s", check for a rewrite in front of Grav.
+
+Consequence of the same setting: reaching the news site by raw IP produces links pointing at
+`schoolhub.local`. Use the hostname. If you rename the project, re-run `seed-content.sh` (it
+rewrites the key in place) and restart the container.
 
 ## Admin panel and shared login (Phase 2 follow-up)
 

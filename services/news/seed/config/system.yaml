@@ -10,9 +10,6 @@
 
 custom_base_url: 'http://schoolhub.local/news'
 
-pages:
-  theme: quark
-
 home:
   alias: '/home'
 
@@ -22,3 +19,7 @@ cache:
 errors:
   display: 0
   log: true
+
+# NOTE: deliberately no `pages.theme` here. The image ships its own theme
+# (currently quark2, not quark) and naming the wrong one white-screens the
+# site. Whatever the image installs is what gets used.

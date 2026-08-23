@@ -3,6 +3,11 @@
 *.pem
 *.key
 
+# TLS material generated on first run by the `certs` compose service.
+# The private key must never be committed; the cert is per-install anyway.
+proxy/certs/*
+!proxy/certs/.gitkeep
+
 # ---- downloaded content (far too large for git) --------------------------
 # ZIM files: 25-45GB each. Fetched with services/library/download-content.sh
 services/library/data/*

@@ -46,6 +46,12 @@
 
 * { box-sizing: border-box; }
 
+/* The HTML `hidden` attribute only sets `display: none` in the UA stylesheet,
+   so ANY author rule that sets display (like .screen below) silently beats it
+   and the "hidden" element stays on screen. This one line is what makes
+   `element.hidden = true` actually work. */
+[hidden] { display: none !important; }
+
 body {
     margin: 0;
     background: var(--bg);
@@ -453,7 +459,10 @@ input[type="text"]:focus {
 
 .movelist ol {
     margin: 0;
-    padding: 0 0 0 18px;
+    /* No markers: the list is newest-first, so "1." would label the LAST move
+       and read as a move number, which it isn't. */
+    list-style: none;
+    padding: 0;
     max-height: 240px;
     overflow-y: auto;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;

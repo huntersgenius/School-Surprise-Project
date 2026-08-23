@@ -231,6 +231,9 @@ else
     $SUDO ufw --force default deny incoming
     $SUDO ufw --force default allow outgoing
     $SUDO ufw allow 80/tcp comment 'SchoolHub'
+    # 443 is needed for the login-gated routes only (Authelia will not run with
+    # an http portal URL). Open content stays on 80.
+    $SUDO ufw allow 443/tcp comment 'SchoolHub (gated routes)'
 
     if [[ -n "$ADMIN_SSH_SOURCE" && "$ADMIN_SSH_SOURCE" != "any" ]]; then
         log "allowing SSH from $ADMIN_SSH_SOURCE only"
@@ -291,7 +294,16 @@ if [[ ! -f .env ]]; then
         sed -i -E "s|^$key=.*|$key=$secret|" .env
     done
 
-    sed -i -E "s|^PUID=.*|PUID=$(id -u)|; s|^PGID=.*|PGID=$(id -g)|" .env
+    # PUID/PGID must NOT be 0: the linuxserver.io images run php-fpm as this
+    # user and php-fpm refuses to run as root ("please specify user and group
+    # other than root"), which takes Grav down with a confusing error. If this
+    # script was run with sudo, id -u is 0 — fall back to the invoking user,
+    # then to 1000.
+    real_uid="${SUDO_UID:-$(id -u)}"
+    real_gid="${SUDO_GID:-$(id -g)}"
+    [[ "$real_uid" == "0" ]] && real_uid=1000
+    [[ "$real_gid" == "0" ]] && real_gid=1000
+    sed -i -E "s|^PUID=.*|PUID=$real_uid|; s|^PGID=.*|PGID=$real_gid|" .env
     sed -i -E "s|^TZ=.*|TZ=$(cat /etc/timezone 2>/dev/null || echo UTC)|" .env
     [[ -n "$ADMIN_SSH_SOURCE" ]] && sed -i -E "s|^ADMIN_SSH_SOURCE=.*|ADMIN_SSH_SOURCE=$ADMIN_SSH_SOURCE|" .env
 
@@ -305,6 +317,14 @@ set -a
 # shellcheck disable=SC1091
 source ./.env
 set +a
+
+# The Calibre-web and Grav containers run as PUID:PGID and need to write into
+# these bind mounts. A fresh clone has them owned by whoever cloned it, which
+# is a 502 on /news and a Calibre-web that can't create its library.
+log "making the data directories writable by ${PUID:-1000}:${PGID:-1000}"
+$SUDO chown -R "${PUID:-1000}:${PGID:-1000}" \
+    services/news/data services/ebooks/config services/ebooks/library services/ebooks/import \
+    2>/dev/null || warn "could not chown the data directories — fix by hand if Grav 502s"
 
 warn "STILL YOURS TO DO: the admin password in auth/users_database.yml is the"
 warn "public placeholder from the repo. Change it before students are on the"

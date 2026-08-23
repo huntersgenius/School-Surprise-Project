@@ -40,6 +40,14 @@ log:
   level: 'info'
   format: 'text'
 
+# This platform runs with no internet, and Authelia's startup clock check is an
+# NTP request to an external server. Without this it logs a warning and a
+# 5-second timeout on every start. Keep the Pi's clock right some other way —
+# it has no RTC, so a wrong clock after a power cut is a real failure mode for
+# session expiry.
+ntp:
+  disable_startup_check: true
+
 totp:
   # One-factor only for now: students and teachers on a closed network, no
   # phones assumed. Flip to false if you later want 2FA for staff accounts.
@@ -100,11 +108,15 @@ access_control:
 session:
   # secret: provided by AUTHELIA_SESSION_SECRET
   cookies:
+    # THESE MUST BE https://. Authelia 4.38+ refuses to start with an http
+    # portal URL — verified against 4.38.19 and 4.39.20, and there is no
+    # localhost exception. That single constraint is why the proxy serves
+    # TLS at all; see the `certs` service in docker-compose.yml.
     - domain: 'schoolhub.local'
       # Where to send a logged-out user. Must be on the cookie domain.
-      authelia_url: 'http://schoolhub.local/authelia'
+      authelia_url: 'https://schoolhub.local/authelia'
       # Where "log in" lands when someone visits the portal directly.
-      default_redirection_url: 'http://schoolhub.local/'
+      default_redirection_url: 'https://schoolhub.local/'
       name: 'authelia_session'
       same_site: 'lax'
       expiration: '12 hours'

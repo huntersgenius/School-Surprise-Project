@@ -21,6 +21,38 @@ networks:
 services:
 
   # ---------------------------------------------------------------------
+  # CERTS — one-shot, exits immediately once a certificate exists.
+  #
+  # Why TLS exists at all on a "plain HTTP LAN" platform: Authelia 4.38+
+  # REFUSES to start if its portal URL is http:// (verified against 4.38.19
+  # and 4.39.20 — there is no localhost exception). Since the login session
+  # cookie then has to be Secure, any route behind login has to be served
+  # over https too. Open content stays on plain http — see
+  # proxy/conf.d/default.conf.
+  #
+  # The certificate is self-signed, so a browser warns the first time. That
+  # only affects staff hitting a gated page, not students reading the
+  # library. To remove the warning, install proxy/certs/public.crt as a
+  # trusted root on the devices that need it.
+  # ---------------------------------------------------------------------
+  certs:
+    image: authelia/authelia:4.38
+    container_name: ${COMPOSE_PROJECT_NAME:-schoolhub}-certs
+    restart: "no"
+    user: "0:0"
+    volumes:
+      - ./proxy/certs:/certs
+    entrypoint: ["/bin/sh", "-c"]
+    # One line on purpose: a YAML folded scalar keeps the newlines of any
+    # more-indented continuation line, which turns each flag into its own
+    # (failing) shell command.
+    command: ["if [ -f /certs/public.crt ] && [ -f /certs/private.pem ]; then echo 'certificate already present, nothing to do'; else echo 'generating a self-signed certificate'; authelia crypto certificate rsa generate --common-name \"$$SITE_HOSTNAME\" --sans \"DNS.1:$$SITE_HOSTNAME,DNS.2:localhost,IP.1:127.0.0.1\" --duration 8760h --directory /certs && chmod 0644 /certs/public.crt /certs/private.pem; fi"]
+    environment:
+      SITE_HOSTNAME: ${SITE_HOSTNAME:-schoolhub.local}
+    networks:
+      - schoolnet
+
+  # ---------------------------------------------------------------------
   # PROXY — the only container with a published port.
   # ---------------------------------------------------------------------
   proxy:
@@ -29,16 +61,21 @@ services:
     restart: unless-stopped
     ports:
       - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
     volumes:
       - ./proxy/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./proxy/conf.d:/etc/nginx/conf.d:ro
       - ./proxy/snippets:/etc/nginx/snippets:ro
+      - ./proxy/certs:/etc/nginx/certs:ro
     environment:
       TZ: ${TZ:-UTC}
     networks:
       - schoolnet
     depends_on:
-      - homepage
+      homepage:
+        condition: service_started
+      certs:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost/healthz"]
       interval: 30s
@@ -106,10 +143,15 @@ services:
       - ${LIBRARY_DATA_DIR:-./services/library/data}:/data:ro
     # --urlRootLocation makes kiwix generate links under /library, so the
     # proxy can pass the path straight through without rewriting anything.
-    # The glob is expanded by kiwix-serve itself (the image has no shell).
-    # If your kiwix-serve build doesn't expand it, list the files explicitly:
-    #   command: ["--port=8080", "--urlRootLocation=/library", "/data/wikipedia_en_all_nopic.zim", "/data/khan-academy.zim"]
-    command: ["--port=8080", "--urlRootLocation=/library", "/data/*.zim"]
+    #
+    # The glob is expanded by the SHELL, not by kiwix-serve: passing
+    # "/data/*.zim" as a plain argument does not work — kiwix-serve treats it
+    # as a literal filename, prints its usage and exits, and the container
+    # restart-loops even when ZIM files are present. Verified against
+    # ghcr.io/kiwix/kiwix-serve:latest. Keeping the shell here is what makes
+    # "drop a .zim in the folder and restart" true with no config change.
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["exec kiwix-serve --port=8080 --urlRootLocation=/library /data/*.zim"]
     environment:
       TZ: ${TZ:-UTC}
     networks:
@@ -150,7 +192,7 @@ services:
   # to a /news/admin location block so teachers use one shared account.
   # ---------------------------------------------------------------------
   news:
-    image: lscr.io/linuxserver/grav:latest
+    image: lscr.io/linuxserver/grav:1.7.53-ls252
     container_name: ${COMPOSE_PROJECT_NAME:-schoolhub}-news
     restart: unless-stopped
     volumes:

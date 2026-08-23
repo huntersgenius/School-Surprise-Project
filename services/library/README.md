@@ -49,13 +49,24 @@ plenty more. Browse `https://download.kiwix.org/zim/`, drop the file into `data/
 container. To automate a new one, copy `get_wikipedia()` in `download-content.sh`, point it at
 the right catalog sub-directory and filename pattern, and add it to the `case` in `main()`.
 
-## If kiwix-serve doesn't expand the glob
+## How the "drop a file in and restart" trick works
 
-The compose command passes `/data/*.zim`. Recent kiwix-serve builds expand that themselves (the
-image has no shell to do it for them). If your build doesn't and the container complains it
-can't find `/data/*.zim`, list the files explicitly in `docker-compose.yml`:
+kiwix-serve does **not** expand `/data/*.zim` itself — passed as a plain argument it treats the
+glob as a literal filename, prints its usage and exits, and the container restart-loops even
+when ZIM files are sitting right there. (Confirmed against `ghcr.io/kiwix/kiwix-serve:latest`.)
+
+So the compose file runs it through a shell, which does the expansion:
 
 ```yaml
-    command: ["--port=8080", "--urlRootLocation=/library",
-              "/data/wikipedia_en_all_nopic_2026-06.zim"]
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["exec kiwix-serve --port=8080 --urlRootLocation=/library /data/*.zim"]
 ```
+
+Don't "simplify" that back to a bare argument list.
+
+## Verifying the route without a 49GB download
+
+Any small `.zim` in `data/` proves the whole path — route, glob, search. If you want one
+without downloading a real corpus, `pip install libzim` and write a one-article ZIM with
+`libzim.writer.Creator`; kiwix-serve serves it exactly like the real thing, full-text search
+included. That is how this route was verified end to end.
