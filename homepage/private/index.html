@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<!-- Served at /private/ — gated by Authelia via
+     proxy/conf.d/locations/70-private.conf. If you can read this in a browser,
+     shared login works end to end: nginx asked Authelia, Authelia checked the
+     session cookie, and only then was this file served.
+
+     This page exists purely as proof + a template. Nothing depends on it. -->
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Staff area — SchoolHub</title>
+    <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="site-header">
+    <div class="wrap brand">
+        <img class="brand__logo" src="/assets/logo.svg" alt="">
+        <div class="brand__text">
+            <h1>Staff area</h1>
+            <p>You are logged in.</p>
+        </div>
+    </div>
+</header>
+
+<main>
+    <div class="wrap">
+        <div class="card">
+            <h2>Shared login is working</h2>
+            <p>
+                This page is behind Authelia. Reaching it means the whole chain worked:
+                the reverse proxy asked Authelia whether you were allowed in, Authelia
+                recognised your session, and only then was this page served.
+            </p>
+            <p>
+                Any other route can be protected the same way — one <code>include</code>
+                line in that route's file under <code>proxy/conf.d/locations/</code>.
+                See the Auth section of <code>PROJECT_PLAN.md</code>.
+            </p>
+            <p>
+                <a class="button" href="/">Back to the hub</a>
+                &nbsp; <a href="/authelia/logout">Log out</a>
+            </p>
+        </div>
+    </div>
+</main>
+
+<footer class="site-footer">
+    <div class="wrap">Running on the school network at <strong>schoolhub.local</strong>.</div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,91 @@
+# SchoolHub starter library — Project Gutenberg, all public domain.
+#
+# TO ADD A BOOK: find it on gutenberg.org, take the number from its URL
+# (gutenberg.org/ebooks/1342 -> 1342) and add a line below. Order and
+# grouping are cosmetic; only the first column is used to fetch.
+# Blank lines and lines starting with # are ignored.
+#
+# gutenberg_id	subject	author	title
+
+# ---- literature ----
+1342	literature	Austen, Jane	Pride and Prejudice
+11	literature	Carroll, Lewis	Alice's Adventures in Wonderland
+84	literature	Shelley, Mary Wollstonecraft	Frankenstein
+1661	literature	Doyle, Arthur Conan	The Adventures of Sherlock Holmes
+2701	literature	Melville, Herman	Moby Dick
+98	literature	Dickens, Charles	A Tale of Two Cities
+1400	literature	Dickens, Charles	Great Expectations
+46	literature	Dickens, Charles	A Christmas Carol in Prose
+74	literature	Twain, Mark	The Adventures of Tom Sawyer, Complete
+76	literature	Twain, Mark	Adventures of Huckleberry Finn
+345	literature	Stoker, Bram	Dracula
+43	literature	Stevenson, Robert Louis	The strange case of Dr. Jekyll and Mr. Hyde
+174	literature	Wilde, Oscar	The Picture of Dorian Gray
+158	literature	Austen, Jane	Emma
+161	literature	Austen, Jane	Sense and Sensibility
+768	literature	Brontë, Emily	Wuthering Heights
+1260	literature	Brontë, Charlotte	Jane Eyre
+120	literature	Stevenson, Robert Louis	Treasure Island
+16	literature	Barrie, J. M. (James Matthew)	Peter Pan
+55	literature	Baum, L. Frank (Lyman Frank)	The Wonderful Wizard of Oz
+236	literature	Kipling, Rudyard	The Jungle Book
+35	literature	Wells, H. G. (Herbert George)	The Time Machine
+36	literature	Wells, H. G. (Herbert George)	The war of the worlds
+164	literature	Verne, Jules	Twenty Thousand Leagues under the Sea
+103	literature	Verne, Jules	Around the World in Eighty Days
+219	literature	Conrad, Joseph	Heart of Darkness
+5200	literature	Kafka, Franz	Metamorphosis
+64317	literature	Fitzgerald, F. Scott (Francis Scott)	The Great Gatsby
+25344	literature	Hawthorne, Nathaniel	The Scarlet Letter
+2554	literature	Dostoyevsky, Fyodor	Crime and Punishment
+1399	literature	Tolstoy, Leo, graf	Anna Karenina
+2600	literature	Tolstoy, Leo, graf	War and Peace
+996	literature	Cervantes Saavedra, Miguel de	Don Quixote
+17396	literature	Burnett, Frances Hodgson	The Secret Garden
+2591	literature	Grimm, Jacob	Grimms' Fairy Tales
+6593	literature	Fielding, Henry	History of Tom Jones, a Foundling
+
+# ---- drama-and-poetry ----
+1524	drama-and-poetry	Shakespeare, William	Hamlet
+1513	drama-and-poetry	Shakespeare, William	Romeo and Juliet
+100	drama-and-poetry	Shakespeare, William	The Complete Works of William Shakespeare
+2542	drama-and-poetry	Ibsen, Henrik	A Doll's House
+844	drama-and-poetry	Wilde, Oscar	The Importance of Being Earnest
+6130	drama-and-poetry	Homer	The Iliad
+1727	drama-and-poetry	Homer	The Odyssey
+8800	drama-and-poetry	Dante Alighieri	The divine comedy
+1080	drama-and-poetry	Swift, Jonathan	A Modest Proposal
+
+# ---- philosophy ----
+1497	philosophy	Plato	The Republic
+3207	philosophy	Hobbes, Thomas	Leviathan
+1232	philosophy	Machiavelli, Niccolò	The Prince
+2680	philosophy	Marcus Aurelius, Emperor of Rome	Meditations
+205	philosophy	Thoreau, Henry David	Walden, and On The Duty Of Civil Disobedience
+1998	philosophy	Nietzsche, Friedrich Wilhelm	Thus Spake Zarathustra
+4363	philosophy	Nietzsche, Friedrich Wilhelm	Beyond Good and Evil
+10615	philosophy	Locke, John	An Essay Concerning Humane Understanding, Volume 1
+132	philosophy	Sunzi, active 6th century B.C.	The Art of War
+
+# ---- science-and-maths ----
+1228	science-and-maths	Darwin, Charles	On the Origin of Species By Means of Natural Selection
+944	science-and-maths	Darwin, Charles	The Voyage of the Beagle
+14474	science-and-maths	Faraday, Michael	The Chemical History of a Candle
+21076	science-and-maths	Euclid	The First Six Books of the Elements of Euclid
+28233	science-and-maths	Newton, Isaac	Philosophiae Naturalis Principia Mathematica
+5001	science-and-maths	Einstein, Albert	Relativity
+15491	science-and-maths	Hooke, Robert	Micrographia
+
+# ---- history-and-civics ----
+7142	history-and-civics	Thucydides	The History of the Peloponnesian War
+25717	history-and-civics	Gibbon, Edward	The History of the Decline and Fall of the Roman Empire
+1404	history-and-civics	Hamilton, Alexander	The Federalist Papers
+147	history-and-civics	Paine, Thomas	Common Sense
+815	history-and-civics	Tocqueville, Alexis de	Democracy in America — Volume 1
+148	history-and-civics	Franklin, Benjamin	The Autobiography of Benjamin Franklin
+23	history-and-civics	Douglass, Frederick	Narrative of the Life of Frederick Douglass, an American Slave
+2376	history-and-civics	Washington, Booker T.	Up from Slavery
+408	history-and-civics	Du Bois, W. E. B. (William Edward Burghardt)	The Souls of Black Folk
+1946	history-and-civics	Clausewitz, Carl von	On War
+24518	history-and-civics	Mackay, Charles	Memoirs of Extraordinary Popular Delusions and the Madness of Crowds
+3300	history-and-civics	Smith, Adam	An Inquiry into the Nature and Causes of the Wealth of Nations

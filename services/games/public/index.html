@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<!--
+    SchoolHub — Games. Two screens in one page: the lobby and the board.
+    Styled to match /homepage so it reads as part of the hub, not a separate app.
+-->
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Games — SchoolHub</title>
+    <meta name="description" content="Play chess or checkers against a classmate on the school network.">
+    <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+    <div class="wrap brand">
+        <a class="brand__back" href="/" title="Back to the hub">←</a>
+        <div class="brand__text">
+            <h1>Games</h1>
+            <p id="tagline">Chess and checkers, live, on the school network.</p>
+        </div>
+        <span id="connection" class="conn conn--connecting" title="Connection to the games server">
+            <span class="conn__dot"></span><span class="conn__label">connecting…</span>
+        </span>
+    </div>
+</header>
+
+<main class="wrap">
+
+    <!-- ================= LOBBY ================= -->
+    <section id="screen-lobby" class="screen">
+
+        <div class="card">
+            <h2>Start a game</h2>
+
+            <label class="field">
+                <span class="field__label">Your name</span>
+                <input id="input-name" type="text" maxlength="24" placeholder="e.g. Amina"
+                       autocomplete="off" spellcheck="false">
+            </label>
+
+            <fieldset class="picker">
+                <legend class="field__label">Game</legend>
+                <div class="picker__options">
+                    <label class="picker__option">
+                        <input type="radio" name="gameType" value="chess" checked>
+                        <span class="picker__body">
+                            <span class="picker__glyph" aria-hidden="true">♞</span>
+                            <span class="picker__name">Chess</span>
+                            <span class="picker__desc">Full rules, including castling and promotion.</span>
+                        </span>
+                    </label>
+                    <label class="picker__option">
+                        <input type="radio" name="gameType" value="checkers">
+                        <span class="picker__body">
+                            <span class="picker__glyph picker__glyph--disc" aria-hidden="true"></span>
+                            <span class="picker__name">Checkers</span>
+                            <span class="picker__desc">Captures are compulsory. Kings move both ways.</span>
+                        </span>
+                    </label>
+                </div>
+            </fieldset>
+
+            <button id="btn-create" class="button button--primary">Create room</button>
+            <p class="hint">You'll get a short code to give to whoever you're playing.</p>
+        </div>
+
+        <div class="card">
+            <h2>Join a game</h2>
+            <label class="field">
+                <span class="field__label">Room code</span>
+                <input id="input-code" class="input--code" type="text" maxlength="4" placeholder="ABCD"
+                       autocomplete="off" autocapitalize="characters" spellcheck="false">
+            </label>
+            <button id="btn-join" class="button">Join room</button>
+            <p class="hint">Ask your opponent for the four letters shown on their screen.</p>
+        </div>
+
+        <p id="lobby-error" class="error" hidden></p>
+    </section>
+
+    <!-- ================= GAME ================= -->
+    <section id="screen-game" class="screen" hidden>
+
+        <div class="gamebar">
+            <div class="gamebar__room">
+                <span class="field__label">Room code</span>
+                <button id="btn-copy-code" class="code" title="Copy the code">
+                    <span id="room-code">----</span>
+                </button>
+            </div>
+            <div class="gamebar__actions">
+                <button id="btn-rematch" class="button button--small" hidden>Rematch</button>
+                <button id="btn-leave" class="button button--small button--quiet">Leave</button>
+            </div>
+        </div>
+
+        <p id="status" class="status">Waiting…</p>
+        <p id="notice" class="notice" hidden></p>
+
+        <div class="gamelayout">
+            <div id="board" class="board" aria-live="polite"></div>
+
+            <aside class="sidebar">
+                <ul id="players" class="players"></ul>
+                <div class="movelist">
+                    <span class="field__label">Moves</span>
+                    <ol id="history"></ol>
+                </div>
+            </aside>
+        </div>
+    </section>
+
+    <!-- promotion chooser, chess only -->
+    <div id="promotion" class="modal" hidden>
+        <div class="modal__panel">
+            <h3>Promote your pawn</h3>
+            <div class="modal__choices">
+                <button class="promo" data-piece="q" title="Queen">♛</button>
+                <button class="promo" data-piece="r" title="Rook">♜</button>
+                <button class="promo" data-piece="b" title="Bishop">♝</button>
+                <button class="promo" data-piece="n" title="Knight">♞</button>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<footer class="site-footer">
+    <div class="wrap">
+        Games run on the hub itself — nothing leaves the school network.
+        Games in progress are lost if the hub restarts.
+    </div>
+</footer>
+
+<script src="config.js"></script>
+<script src="socket.io/socket.io.js"></script>
+<script src="board.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

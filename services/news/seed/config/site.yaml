@@ -1,0 +1,12 @@
+# Grav site config for SchoolHub's news board.
+
+title: 'School News'
+
+metadata:
+  description: 'Announcements, notices and events for the school.'
+
+blog:
+  route: '/'
+
+author:
+  name: 'School Office'

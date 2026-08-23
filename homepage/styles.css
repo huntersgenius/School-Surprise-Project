@@ -1,0 +1,207 @@
+/* ---------------------------------------------------------------------------
+   SchoolHub — homepage styles.
+
+   Plain CSS, no framework, no external fonts or icons: the whole point of this
+   platform is that it works with no internet at all, so nothing here may load
+   from a CDN.
+
+   The design tokens in :root are duplicated in services/games/public/styles.css
+   so the games screen matches. If you change a colour here, change it there.
+   --------------------------------------------------------------------------- */
+
+:root {
+    --bg: #f4f6fb;
+    --bg-elevated: #ffffff;
+    --ink: #16202f;
+    --ink-soft: #55627a;
+    --ink-faint: #8a94a8;
+    --line: #dfe4ee;
+    --accent: #2f6df6;
+    --accent-ink: #ffffff;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 8px 24px rgba(16, 24, 40, .06);
+    --radius: 14px;
+    --maxw: 960px;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #0f1420;
+        --bg-elevated: #171d2b;
+        --ink: #e8ecf5;
+        --ink-soft: #a7b0c2;
+        --ink-faint: #78849b;
+        --line: #263042;
+        --accent: #6f9bff;
+        --accent-ink: #0f1420;
+        --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+    }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+                 Arial, sans-serif;
+    line-height: 1.55;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.wrap {
+    width: 100%;
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* ---- header ---- */
+
+.site-header {
+    padding: 40px 0 28px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.brand__logo {
+    width: 56px;
+    height: 56px;
+    flex: 0 0 56px;
+}
+
+.brand__text h1 {
+    margin: 0;
+    font-size: 1.7rem;
+    letter-spacing: -0.02em;
+}
+
+.brand__text p {
+    margin: 2px 0 0;
+    color: var(--ink-soft);
+    font-size: .95rem;
+}
+
+/* ---- tiles ---- */
+
+main { flex: 1 0 auto; }
+
+.tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 16px;
+    padding: 8px 0 40px;
+    list-style: none;
+    margin: 0;
+}
+
+.tile {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 22px;
+    min-height: 150px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    color: inherit;
+    text-decoration: none;
+    transition: transform .12s ease, border-color .12s ease;
+}
+
+.tile:hover,
+.tile:focus-visible {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+    outline: none;
+}
+
+.tile__icon {
+    width: 30px;
+    height: 30px;
+    color: var(--accent);
+    margin-bottom: 4px;
+}
+
+.tile__name {
+    font-size: 1.15rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+}
+
+.tile__desc {
+    color: var(--ink-soft);
+    font-size: .9rem;
+}
+
+.tile--soon {
+    opacity: .55;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.badge {
+    align-self: flex-start;
+    margin-top: auto;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--line);
+    color: var(--ink-soft);
+    font-size: .72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+/* ---- footer ---- */
+
+.site-footer {
+    flex-shrink: 0;
+    padding: 20px 0 32px;
+    border-top: 1px solid var(--line);
+    color: var(--ink-faint);
+    font-size: .85rem;
+}
+
+.site-footer a { color: var(--ink-soft); }
+
+/* ---- simple content pages (forum placeholder, private demo) ---- */
+
+.card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 28px;
+    margin: 8px 0 40px;
+}
+
+.card h2 { margin-top: 0; }
+
+.button {
+    display: inline-block;
+    padding: 10px 18px;
+    border-radius: 10px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+@media (max-width: 480px) {
+    .site-header { padding: 26px 0 18px; }
+    .brand__logo { width: 44px; height: 44px; flex-basis: 44px; }
+    .brand__text h1 { font-size: 1.4rem; }
+    .tiles { grid-template-columns: 1fr; }
+    .tile { min-height: 0; }
+}
