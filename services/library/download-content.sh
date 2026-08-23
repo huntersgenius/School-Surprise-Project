@@ -10,6 +10,8 @@
 #
 #   ./download-content.sh --list                 # show names + sizes, fetch nothing
 #   ./download-content.sh wikipedia              # ~49 GB as of the last check
+#   ./download-content.sh --variant top wikipedia    # ~2 GB, most-read articles
+#   ./download-content.sh --variant simple wikipedia # ~1 GB, Simple English
 #   ./download-content.sh khan                   # SEE THE WARNING BELOW
 #   ./download-content.sh all                    # both (default)
 #   ./download-content.sh --dest /srv/zim all    # somewhere other than ./data
@@ -45,6 +47,7 @@ DRY_RUN=0
 LIST_ONLY=0
 ASSUME_YES=0
 SIZE_WARN_GB="${SIZE_WARN_GB:-60}"
+WIKIPEDIA_VARIANT="${WIKIPEDIA_VARIANT:-all}"
 TARGETS=()
 
 # ---------------------------------------------------------------------------
@@ -243,15 +246,31 @@ verify_checksum() {
 # the two content sets
 # ---------------------------------------------------------------------------
 
-# Wikipedia: "nopic" = full article text, no images (~25-45GB).
+# Wikipedia: "nopic" = full article text, no images.
 # "mini" is too shallow for homework, "maxi" is 100GB+. See PROJECT_PLAN.md.
+#
+# Three real nopic builds, all English, differing only in how many articles
+# they contain. Pick with --variant; the default is the full corpus.
+#   all     every article          ~49 GB   what the plan calls for
+#   top     the most-read articles  ~2 GB   a genuine subset, good for a
+#                                           small SSD or for proving the
+#                                           library works before committing
+#                                           to the full download
+#   simple  Simple English Wikipedia ~1 GB  shorter articles, easier reading
+wikipedia_pattern() {
+    case "$1" in
+        all)    printf 'wikipedia_en_all_nopic_[0-9]{4}-[0-9]{2}\\.zim' ;;
+        top)    printf 'wikipedia_en_top_nopic_[0-9]{4}-[0-9]{2}\\.zim' ;;
+        simple) printf 'wikipedia_en_simple_all_nopic_[0-9]{4}-[0-9]{2}\\.zim' ;;
+        *) die "unknown --variant '$1' (use: all, top, simple)" ;;
+    esac
+}
+
 get_wikipedia() {
-    log "resolving latest wikipedia_en_all_nopic from the Kiwix catalog"
+    local pattern; pattern="$(wikipedia_pattern "$WIKIPEDIA_VARIANT")"
+    log "resolving latest Wikipedia (variant: $WIKIPEDIA_VARIANT) from the Kiwix catalog"
     local rel
-    rel="$(resolve "Wikipedia" \
-              wikipedia \
-              -- \
-              'wikipedia_en_all_nopic_[0-9]{4}-[0-9]{2}\.zim')" || return 1
+    rel="$(resolve "Wikipedia" wikipedia -- "$pattern")" || return 1
     log "latest is ${rel##*/}"
     download_one "$rel"
 }
@@ -293,6 +312,7 @@ main() {
             --dest)     DEST_DIR="$2"; shift 2 ;;
             --dry-run)  DRY_RUN=1; shift ;;
             -y|--yes)   ASSUME_YES=1; shift ;;
+            --variant)  WIKIPEDIA_VARIANT="$2"; shift 2 ;;
             --list)     LIST_ONLY=1; DRY_RUN=1; shift ;;
             -h|--help)  usage 0 ;;
             wikipedia|wiki)      TARGETS+=("wikipedia"); shift ;;

@@ -31,24 +31,24 @@ existing Calibre library; the Database Configuration page has no "create new dat
 and pointing it at an empty folder just fails validation. `calibredb add` (what the import
 script runs) is what creates `metadata.db` in the first place.
 
-## calibredb comes from a mod, and the mod is downloaded at runtime
+## Where calibredb comes from (this is verified, not theoretical)
 
-`DOCKER_MODS=linuxserver/mods:universal-calibre` is fetched **when the container starts**, not
-baked into the image. Two consequences:
+`import-to-calibre.sh` gets `calibredb` one of two ways and defaults to the reliable one:
 
-* Do the first import while the machine still has internet. On a Pi that has already been
-  sealed off from the network, the mod can't be fetched and `calibredb` won't exist.
-* If the fetch fails you'll see `OFFLINE: linuxserver/mods:universal-calibre not found in
-  modcache, skipping` in `docker compose logs ebooks`, and `import-to-calibre.sh` will stop
-  with a clear message rather than half-importing.
+**`--method image` (the default).** Runs `calibredb` from the official
+`lscr.io/linuxserver/calibre` image as a one-off container. Pulls ~1.2GB once, then works every
+time, and doesn't depend on the ebooks container at all. This is the path the full 73-book
+starter set was actually imported with — 73 books, real titles and authors and cover art
+extracted from the epubs, 52MB library.
 
-Fallback if you can't use the mod: run calibre's CLI from a one-off container instead —
+**`--method container`.** Uses the `calibredb` that `DOCKER_MODS=linuxserver/mods:universal-calibre`
+installs inside the running ebooks container. Lighter, but that mod is downloaded **when the
+container starts**, so on a machine that was offline at the time it silently isn't there. The
+symptom is `OFFLINE: linuxserver/mods:universal-calibre not found in modcache, skipping` in
+`docker compose logs ebooks`. The script falls back automatically and tells you.
 
-```bash
-docker run --rm -v "$PWD/services/ebooks/library:/books" -v "$PWD/services/ebooks/import:/import" \
-  lscr.io/linuxserver/calibre:latest \
-  /usr/bin/calibredb add --recurse --with-library /books /import
-```
+Either way the import is idempotent — `--automerge=ignore` means re-running skips books that
+are already in the library, so adding a few titles later is just download + import again.
 
 ## Expanding the library
 
@@ -86,12 +86,17 @@ be handed to other schools, so a copyright problem would sink it. The curated li
 title by title — Gutenberg's catalogue does contain adult material, so if you expand by
 `--topic` or by raw ID, skim what lands in `import/` before importing.
 
-## Rate limits
+## Rate limits, and use the mirror
 
 Project Gutenberg asks automated clients not to hammer the site. The script sleeps between
-downloads, identifies itself in the User-Agent, and skips what it already has. For large pulls
-use a mirror:
+downloads, identifies itself in the User-Agent, and skips what it already has.
+
+**In practice `www.gutenberg.org` is the slow path** — it returned `504` on most requests when
+the starter set was fetched, and the whole run only completed against the mirror. Prefer:
 
 ```bash
-GUTENBERG_MIRROR=https://gutenberg.pglaf.org ./services/ebooks/download-content.sh --topic science --limit 300
+GUTENBERG_MIRROR=https://gutenberg.pglaf.org ./services/ebooks/download-content.sh
 ```
+
+All 73 titles came down in about 90 seconds that way. The same variable works with `--topic`
+for larger pulls.

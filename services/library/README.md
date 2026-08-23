@@ -64,9 +64,20 @@ So the compose file runs it through a shell, which does the expansion:
 
 Don't "simplify" that back to a bare argument list.
 
-## Verifying the route without a 49GB download
+## Smaller real Wikipedia builds
 
-Any small `.zim` in `data/` proves the whole path — route, glob, search. If you want one
-without downloading a real corpus, `pip install libzim` and write a one-article ZIM with
-`libzim.writer.Creator`; kiwix-serve serves it exactly like the real thing, full-text search
-included. That is how this route was verified end to end.
+If the full 49GB doesn't fit — or you want to prove the whole path before committing to an
+overnight download — there are two other genuine English "nopic" builds:
+
+```bash
+./download-content.sh --variant top wikipedia      # ~2 GB, the most-read articles
+./download-content.sh --variant simple wikipedia   # ~1 GB, Simple English Wikipedia
+./download-content.sh --variant all wikipedia      # ~49 GB, everything (default)
+```
+
+Same format, same code path, same search — only the corpus differs. The `top` build is what
+this route was verified against: catalog listing, the *Photosynthesis* article rendering at
+422KB through the proxy, and full-text search returning real hits.
+
+You can also drop any `.zim` in `data/` and restart; kiwix serves whatever is there, and
+multiple ZIMs appear as separate books in the catalog.

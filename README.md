@@ -7,6 +7,10 @@ plugged into the school's network, with **zero internet dependency for students*
 The full architecture and reasoning live in [PROJECT_PLAN.md](PROJECT_PLAN.md). Read that first
 if you're picking this up cold.
 
+**Standing it up on the actual Pi? Follow [PILOT_CHECKLIST.md](PILOT_CHECKLIST.md)** — it has
+the verified/not-verified status of every service, the exact deploy commands, and the checks
+that can only be done on real hardware.
+
 ```
 /proxy              Nginx reverse proxy — the single entry point on port 80
 /homepage           the static front door students land on
@@ -25,7 +29,8 @@ deploy.sh           Pi-side setup — RUNS ON THE PI, not on your laptop
 ## Running it locally, step by step
 
 Everything below runs on your dev machine (WSL2 + Docker Desktop, or any Linux with Docker).
-Nothing here has been run yet — no images built, no content downloaded.
+This sequence has been run end to end — the commands and their expected output are what
+actually happened, not what should happen in theory.
 
 ### 1. Get the branch
 
@@ -166,10 +171,16 @@ Configuration page.
 
 **Order matters here.** Calibre-web can only *open* an existing Calibre library — it has no
 "create new database" button. `import-to-calibre.sh` is what creates it, via `calibredb`, so
-run the import before pointing Calibre-web at `/books`. `calibredb` comes from
-`DOCKER_MODS=linuxserver/mods:universal-calibre`, which the container downloads on first start
-— so do this while the machine still has internet, not after the Pi is sealed off. If the mod
-didn't install, the script says so and stops rather than half-importing.
+run the import before pointing Calibre-web at `/books`.
+
+By default the import runs `calibredb` from a one-off `linuxserver/calibre` container (~1.2GB
+pulled once, works reliably). It can also use the `calibredb` that
+`DOCKER_MODS=linuxserver/mods:universal-calibre` installs inside the ebooks container, but that
+mod is downloaded when the container starts and silently isn't there if the machine was offline
+— so the one-off container is the default. See `services/ebooks/README.md`.
+
+If gutenberg.org is slow or returns 504s, use the mirror:
+`GUTENBERG_MIRROR=https://gutenberg.pglaf.org ./services/ebooks/download-content.sh`
 
 ### 7. Download the library (hours, tens of GB)
 
@@ -181,6 +192,9 @@ didn't install, the script says so and stops rather than half-importing.
 
 As of the last check: Wikipedia (no pictures) is **49 GB**; the only English Khan Academy ZIM
 Kiwix publishes is the with-video build at **168 GB**. Then:
+
+Smaller real alternatives if the SSD is tight — same format, same code path, real Wikipedia:
+`--variant top` (~2GB, most-read articles) or `--variant simple` (~1GB, Simple English).
 
 ```bash
 # run this in tmux/screen — it takes hours and resumes if interrupted

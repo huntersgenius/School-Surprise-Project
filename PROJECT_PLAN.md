@@ -77,13 +77,13 @@ itself has not been touched, and the large content downloads have not been run.
 | Repo scaffold, `.gitignore`, `.env.example` | done |
 | Nginx reverse proxy (`/proxy`) | **running** — every route verified; three config bugs found and fixed |
 | Homepage (`/homepage`) | **running** — serves at `/`, tiles link correctly |
-| Library (kiwix-serve) | **running** — catalog, article rendering and full-text search verified with a test ZIM; the real 49GB download is yours to kick off |
-| Ebooks (Calibre-web) | **running** — login and the `/ebooks` prefix verified in a browser; bulk import needs the calibre mod (see its README) |
+| Library (kiwix-serve) | **running with real content** — 2.1GB `wikipedia_en_top_nopic` downloaded and checksum-verified; catalog, article rendering and full-text search all confirmed through the proxy. The full 49GB build is yours to kick off on the Pi |
+| Ebooks (Calibre-web) | **running with real content** — all 73 starter titles downloaded and imported with `calibredb`; library browsable, book download and in-browser reader both verified |
 | News (Grav) | **running** — three seeded posts render, links carry the `/news` prefix |
 | Auth (Authelia) | **running** — full chain verified: gated route → portal → login → session → content |
 | Games (Node + Socket.io) | **running** — chess and checkers played end to end in two real browsers, including the disconnect/forfeit path |
 | Forum (Lemmy) | Phase 4, **not started** — placeholder route only |
-| Pi deployment (`deploy.sh`) | written, **not run** — it runs on the Pi, which doesn't exist yet |
+| Pi deployment (`deploy.sh`) | written, **not run** — it runs on the Pi, which doesn't exist yet. See `PILOT_CHECKLIST.md` |
 
 ---
 
